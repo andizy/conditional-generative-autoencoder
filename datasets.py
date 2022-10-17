@@ -62,8 +62,8 @@ class DatasetLoader(torch.utils.data.Dataset):
     
   
 
-def load_dataset(dataset = "mnist", test_pct=0.1, img_size=(32,32), c=1 ):
-    dataset = DatasetLoader(dataset = dataset ,size = img_size, c = c)
+def load_dataset(dataset = "mnist", test_pct=0.1, img_size=(32,32), c=1, cond=False):
+    dataset = DatasetLoader(dataset = dataset ,size = img_size, c = c, cond = cond)
     test_size = int(len(dataset) * test_pct)
     train_size = int(len(dataset) - test_size)
     train_ds, test_ds = random_split(dataset, [train_size, test_size])
