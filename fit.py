@@ -54,7 +54,7 @@ def fit_aeder(  aeder,
         for image in train_loader:
             batch_size = image.shape[0]
             if y_train_loader:
-                cond_image = next(iter(y_train_loader)).to(device)
+                cond_image = next(y_train_loader).to(device)
             else:
                 cond_image = add_noise(image).to(device)
             image = image.to(device)
