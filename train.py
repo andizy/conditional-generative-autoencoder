@@ -56,14 +56,48 @@ def train():
     train_dataset, test_dataset = load_dataset(
         dataset=dataset,
         img_size=(image_size, image_size),
-        c=c)
+        c=c
+        )
+    if dataset == "limited-ct":
+        y_train_dataset, y_test_dataset = load_dataset(
+            dataset=dataset,
+            img_size=(image_size, image_size),
+            c=c,
+            cond=True
+        )
+        y_train_loader = torch.utils.data.DataLoader(y_train_dataset, batch_size=batch_size,
+                                                shuffle = True,num_workers=8)
+        
+        try:
+            train_dataset.zip(y_train_dataset)
+            print(train_dataset[0])
+        except:
+            train_dataset, test_dataset = load_dataset(
+            dataset=dataset,
+            img_size=(image_size, image_size),
+            c=c
+            )
+            print(train_dataset[0])
+        try:
+            train_dataset = zip(train_dataset, test_dataset)
+        except:
+            train_dataset, test_dataset = load_dataset(
+            dataset=dataset,
+            img_size=(image_size, image_size),
+            c=c
+            )
     
+        
+
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size,
                                             shuffle = True,num_workers=8)
     
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size,
                                             shuffle = True,num_workers=8)
     
+
+
+
     ntrain = len(train_loader.dataset)
 
 

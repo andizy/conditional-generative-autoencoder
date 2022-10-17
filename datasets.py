@@ -16,7 +16,9 @@ class DatasetLoader(torch.utils.data.Dataset):
         dataset = 'mnist', 
         size=(32,32), 
         c = 1,
-        missing_cone = 'vertical'):
+        missing_cone = 'vertical',
+        cond = False,
+        ):
         self.transform = transforms.Compose([
             transforms.Resize(size),
             transforms.ToTensor(),
@@ -34,6 +36,13 @@ class DatasetLoader(torch.utils.data.Dataset):
         elif self.dataset == 'limited-ct':
             x_limited_ct_path = '/raid/Amir/Projects/datasets/CT_dataset/images/gt_train'
             self.img_dataset = ImageFolder(x_limited_ct_path, self.transform)
+        if cond:
+            if self.dataset == 'limited-ct':
+                if missing_cone == "vertical":
+                    y_folder = "/raid/Amir/Projects/datasets/CT_dataset/images/fbp_train_vertical_snr_40"
+                else:
+                    y_folder = "/raid/Amir/Projects/datasets/CT_dataset/images/fbp_train_horizontal_snr_40"
+                self.img_dataset = ImageFolder(y_folder, self.transform)
 
             
 
