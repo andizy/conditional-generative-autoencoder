@@ -156,7 +156,7 @@ def train():
 
     batch_img = next(iter(train_loader)).to(device)
     if y_train_ctrl:
-        cond_batch_img = next(iter(y_train_loader)).to(device)
+        cond_batch_img = next(y_train_loader).to(device)
     else:
         cond_batch_img = add_noise(batch_img)
 
