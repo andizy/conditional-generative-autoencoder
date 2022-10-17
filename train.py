@@ -140,7 +140,8 @@ def train():
                 exp_path,
                 checkpoint_autoencoder_path,
                 image_size,
-                c                
+                c,
+                y_train_loader=y_train_loader                
                 )
 
     #2.Intilize the nfm model 
@@ -154,7 +155,7 @@ def train():
     # Initialize ActNorm
 
     batch_img = next(iter(train_loader)).to(device)
-    if y_train_loader:
+    if y_train_ctrl:
         cond_batch_img = next(iter(y_train_loader)).to(device)
     else:
         cond_batch_img = add_noise(batch_img)
@@ -185,7 +186,9 @@ def train():
             exp_path,
             checkpoint_flow_path,
             image_size,
-            c)
+            c,
+            y_train_loader=y_train_loader
+            )
 
 
 if __name__ == '__main__':
