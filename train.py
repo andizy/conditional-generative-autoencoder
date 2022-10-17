@@ -105,6 +105,8 @@ def train():
     print('---> latent dim: {}'.format(latent_dim))
     print('---> image size: {}'.format(image_size))
     print('---> Number of training samples: {}'.format(ntrain))
+    if y_train_ctrl:
+        print('---> Number of training conditional sampe samples: {}'.format(len(y_train_loader)))
 
 
     logger.info("Training phase ...")
@@ -141,7 +143,7 @@ def train():
                 checkpoint_autoencoder_path,
                 image_size,
                 c,
-                y_train_loader=y_train_loader                
+                y_train_loader=y_train_loader if y_train_ctrl else None                
                 )
 
     #2.Intilize the nfm model 
