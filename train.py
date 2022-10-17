@@ -58,7 +58,9 @@ def train():
         img_size=(image_size, image_size),
         c=c
         )
+    y_train_ctrl = False
     if dataset == "limited-ct":
+
         y_train_dataset, y_test_dataset = load_dataset(
             dataset=dataset,
             img_size=(image_size, image_size),
@@ -66,31 +68,15 @@ def train():
             cond=True
         )
         y_train_loader = torch.utils.data.DataLoader(y_train_dataset, batch_size=batch_size,
-                                                shuffle = True,num_workers=8)
+                                            shuffle = True,num_workers=8)
+        y_train_ctrl = True
         
-        try:
-            train_dataset.zip(y_train_dataset)
-            print(train_dataset[0])
-        except:
-            train_dataset, test_dataset = load_dataset(
-            dataset=dataset,
-            img_size=(image_size, image_size),
-            c=c
-            )
-            print(train_dataset[0])
-        try:
-            train_dataset = zip(train_dataset, test_dataset)
-        except:
-            train_dataset, test_dataset = load_dataset(
-            dataset=dataset,
-            img_size=(image_size, image_size),
-            c=c
-            )
-    
+        
         
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size,
                                             shuffle = True,num_workers=8)
+    
     
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size,
                                             shuffle = True,num_workers=8)
@@ -166,8 +152,13 @@ def train():
     scheduler_flow = torch.optim.lr_scheduler.StepLR(optimizer_flow, step_size=step_size, gamma=gamma)
     
     # Initialize ActNorm
+
     batch_img = next(iter(train_loader)).to(device)
-    cond_batch_img = add_noise(batch_img)
+    if y_train_loader:
+        cond_batch_img = next(iter(y_train_loader)).to(device)
+    else:
+        cond_batch_img = add_noise(batch_img)
+
     dummy_samples = aeder.encoder(batch_img, cond_batch_img)
     dummy_samples = dummy_samples.view(-1, latent_dim)
     cond_dummy_samples = add_noise(dummy_samples)

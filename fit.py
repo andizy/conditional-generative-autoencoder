@@ -31,13 +31,15 @@ def fit_aeder(  aeder,
                 plot_per_num_epoch, 
                 epochs_aeder, 
                 train_loader,
+
                 device,
                 #additional atttributes
                 ntrain,
                 exp_path,
                 checkpoint_autoencoder_path,
                 image_size,
-                c                
+                c,
+                y_train_loader=None               
                 ):
     print("Train AoutEncoder ")
     if plot_per_num_epoch == -1:
@@ -51,7 +53,10 @@ def fit_aeder(  aeder,
 
         for image in train_loader:
             batch_size = image.shape[0]
-            cond_image = add_noise(image).to(device)
+            if y_train_loader:
+                cond_image = next(iter(y_train_loader)).to(device)
+            else:
+                cond_image = add_noise(image).to(device)
             image = image.to(device)
             
             optimizer_aeder.zero_grad()
@@ -158,7 +163,9 @@ def fit_flow(nfm,
             exp_path,
             checkpoint_flow_path,
             image_size,
-            c):
+            c,
+            y_train_loader=None
+            ):
     
     loss_hist = np.array([])
 
@@ -170,7 +177,11 @@ def fit_flow(nfm,
         for image in train_loader:
             optimizer_flow.zero_grad()
             #add noise to the image to use is as conditional image
-            cond_image = add_noise(image).to(device)
+            if y_train_loader:
+                cond_image = next(iter(y_train_loader)).to(device)
+            else:
+                cond_image = add_noise(image).to(device)
+            
             image = image.to(device)
             
             y = cond_image 
