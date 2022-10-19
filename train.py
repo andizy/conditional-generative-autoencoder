@@ -17,6 +17,8 @@ from datasets import *
 from fit import fit_aeder, fit_flow
 from logger_conf import logger
 
+from timeit import default_timer
+
 
     
 def train():
@@ -68,14 +70,14 @@ def train():
             cond=True
         )
         y_train_loader = torch.utils.data.DataLoader(y_train_dataset, batch_size=batch_size,
-                                            shuffle = True,num_workers=8)
+                                             shuffle = True,num_workers=8, pin_memory=True)
         y_train_ctrl = True
         
         
         
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size,
-                                            shuffle = True,num_workers=8)
+                                            shuffle = True,num_workers=8, pin_memory=True)
     
     
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size,
@@ -86,7 +88,18 @@ def train():
 
     ntrain = len(train_loader.dataset)
 
-
+    for image in range(100):
+        t1 = default_timer()
+        # image.to(device)
+        image = next(iter(train_loader)).to(device)
+        cond_image = next(iter(y_train_loader)).to(device)
+        print(image.shape)
+        print(image.dtype)
+        print(cond_image.shape)
+        print(cond_image.dtype)
+        t2 = default_timer()
+        print("Loading dataset time:", t2-t1)
+        
 
     learning_rate = 1e-4
     step_size = 50
@@ -128,7 +141,7 @@ def train():
         optimizer_aeder.load_state_dict(checkpoint_autoencoder['optimizer_state_dict'])
         print('Autoencoder is restored...')
 
-    if train_aeder:
+    if train_aeder and False:
         fit_aeder(aeder,
                 myloss,
                 optimizer_aeder, 
@@ -158,7 +171,7 @@ def train():
 
     batch_img = next(iter(train_loader)).to(device)
     if y_train_ctrl:
-        cond_batch_img = next(y_train_loader).to(device)
+        cond_batch_img = next(iter(y_train_loader)).to(device)
     else:
         cond_batch_img = add_noise(batch_img)
 
@@ -175,7 +188,7 @@ def train():
         print('Flow model is restored...')
     
 
-    if train_flow:
+    if train_flow and False:
         fit_flow(nfm, 
             aeder,
             optimizer_flow,

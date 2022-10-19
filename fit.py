@@ -54,11 +54,13 @@ def fit_aeder(  aeder,
         for image in train_loader:
             batch_size = image.shape[0]
             if y_train_loader:
-                cond_image = next(y_train_loader).to(device)
+                cond_image = next(iter(y_train_loader))
+                cond_image = cond_image.to(device)
             else:
                 cond_image = add_noise(image).to(device)
             image = image.to(device)
-            
+            if image.shape[0] != cond_image.shape[0]:
+                cond_image = cond_image[0:image.shape[0]]
             optimizer_aeder.zero_grad()
             embed = aeder.encoder(image, cond_image)
             image_recon = aeder.decoder(embed, cond_image)
@@ -71,8 +73,7 @@ def fit_aeder(  aeder,
     
             optimizer_aeder.step()
             loss_ae_epoch += ae_loss.item()
-
-
+            
         scheduler_aeder.step()
 
         t2 = default_timer()
@@ -181,8 +182,10 @@ def fit_flow(nfm,
                 cond_image = next(iter(y_train_loader)).to(device)
             else:
                 cond_image = add_noise(image).to(device)
-            
             image = image.to(device)
+            if image.shape[0] != cond_image.shape[0]:
+                cond_image = cond_image[0:image.shape[0]]
+            
             
             y = cond_image 
             x = aeder.encoder(image, cond_image)
