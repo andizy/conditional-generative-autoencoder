@@ -51,7 +51,7 @@ class CondNetNF(nn.Module):
         x = torch.flatten(x, 1)
         for i in range(len(self.mlps)-1):
             x = self.mlps[i](x)
-            x = F.sigmoid(x)
+            x = torch.sigmoid(x)
         x = self.mlps[-1](x)
         
         return x

@@ -3,6 +3,7 @@
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+from torchdata.datapipes.map import SequenceWrapper
 
 import numpy as np
 import shutil
@@ -69,15 +70,18 @@ def train():
             c=c,
             cond=True
         )
-        y_train_loader = torch.utils.data.DataLoader(y_train_dataset, batch_size=batch_size,
-                                             shuffle = True,num_workers=8, pin_memory=True)
+        train_dataset = SequenceWrapper(train_dataset)
+        y_train_dataset = SequenceWrapper(y_train_dataset)
+        train_dataset = train_dataset.zip(y_train_dataset)
+        # y_train_loader = torch.utils.data.DataLoader(y_train_dataset, batch_size=batch_size,
+        #                                      shuffle = True,num_workers=8, pin_memory=True)
         y_train_ctrl = True
         
         
         
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size,
-                                            shuffle = True,num_workers=8, pin_memory=True)
+                                            shuffle = True,num_workers=8)
     
     
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size,
@@ -88,19 +92,7 @@ def train():
 
     ntrain = len(train_loader.dataset)
 
-    for image in range(100):
-        t1 = default_timer()
-        # image.to(device)
-        image = next(iter(train_loader)).to(device)
-        cond_image = next(iter(y_train_loader)).to(device)
-        print(image.shape)
-        print(image.dtype)
-        print(cond_image.shape)
-        print(cond_image.dtype)
-        t2 = default_timer()
-        print("Loading dataset time:", t2-t1)
-        
-
+  
     learning_rate = 1e-4
     step_size = 50
     gamma = 0.5
@@ -118,9 +110,7 @@ def train():
     print('---> latent dim: {}'.format(latent_dim))
     print('---> image size: {}'.format(image_size))
     print('---> Number of training samples: {}'.format(ntrain))
-    if y_train_ctrl:
-        print('---> Number of training conditional sampe samples: {}'.format(len(y_train_loader)))
-
+    
 
     logger.info("Training phase ...")
     # 1. Training Autoencoder:
@@ -141,7 +131,7 @@ def train():
         optimizer_aeder.load_state_dict(checkpoint_autoencoder['optimizer_state_dict'])
         print('Autoencoder is restored...')
 
-    if train_aeder and False:
+    if train_aeder:
         fit_aeder(aeder,
                 myloss,
                 optimizer_aeder, 
@@ -156,7 +146,7 @@ def train():
                 checkpoint_autoencoder_path,
                 image_size,
                 c,
-                y_train_loader=y_train_loader if y_train_ctrl else None                
+                y_train_loader=y_train_ctrl if y_train_ctrl else None                
                 )
 
     #2.Intilize the nfm model 
@@ -168,13 +158,15 @@ def train():
     scheduler_flow = torch.optim.lr_scheduler.StepLR(optimizer_flow, step_size=step_size, gamma=gamma)
     
     # Initialize ActNorm
-
-    batch_img = next(iter(train_loader)).to(device)
     if y_train_ctrl:
-        cond_batch_img = next(iter(y_train_loader)).to(device)
+        batch_img_touple = next(iter(train_loader))
+        batch_img = batch_img_touple[0].to(device)
+        cond_batch_img = batch_img_touple[1].to(device)
     else:
+        batch_img = next(iter(train_loader)).to(device)
         cond_batch_img = add_noise(batch_img)
 
+    
     dummy_samples = aeder.encoder(batch_img, cond_batch_img)
     dummy_samples = dummy_samples.view(-1, latent_dim)
     cond_dummy_samples = add_noise(dummy_samples)
@@ -188,7 +180,7 @@ def train():
         print('Flow model is restored...')
     
 
-    if train_flow and False:
+    if train_flow:
         fit_flow(nfm, 
             aeder,
             optimizer_flow,
@@ -202,7 +194,7 @@ def train():
             checkpoint_flow_path,
             image_size,
             c,
-            y_train_loader=y_train_loader
+            y_train_loader=y_train_ctrl
             )
 
 

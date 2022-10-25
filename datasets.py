@@ -35,11 +35,19 @@ class DatasetLoader(torch.utils.data.Dataset):
             celeba_path = '/raid/Amir/Projects/datasets/celeba_hq/celeba_hq_256/'
             self.img_dataset = ImageFolder(celeba_path, self.transform)
         elif self.dataset == 'limited-ct':
-            self.transform.append(transforms.Grayscale(num_output_channels=1))
+            self.transform = transforms.Compose([
+            transforms.Resize(size),
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+            ])
             x_limited_ct_path = '/raid/Amir/Projects/datasets/CT_dataset/images/gt_train'
             self.img_dataset = ImageFolder(x_limited_ct_path, self.transform)
         if cond:
-            self.transform.append(transforms.Grayscale(num_output_channels=1))
+            self.transform = transforms.Compose([
+            transforms.Resize(size),
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+            ])
             if self.dataset == 'limited-ct':
                 if missing_cone == "vertical":
                     y_folder = "/raid/Amir/Projects/datasets/CT_dataset/images/fbp_train_vertical_snr_40"

@@ -52,13 +52,15 @@ def fit_aeder(  aeder,
         loss_ae_epoch = 0
 
         for image in train_loader:
-            batch_size = image.shape[0]
+            
             if y_train_loader:
-                cond_image = next(iter(y_train_loader))
-                cond_image = cond_image.to(device)
+                cond_image = image[1].to(device)
+                image = image[0]
             else:
                 cond_image = add_noise(image).to(device)
             image = image.to(device)
+            batch_size = image.shape[0]
+            
             if image.shape[0] != cond_image.shape[0]:
                 cond_image = cond_image[0:image.shape[0]]
             optimizer_aeder.zero_grad()
@@ -179,7 +181,8 @@ def fit_flow(nfm,
             optimizer_flow.zero_grad()
             #add noise to the image to use is as conditional image
             if y_train_loader:
-                cond_image = next(iter(y_train_loader)).to(device)
+                cond_image = image[1].to(device)
+                image = image[0]
             else:
                 cond_image = add_noise(image).to(device)
             image = image.to(device)
