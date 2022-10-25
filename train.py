@@ -21,6 +21,7 @@ from logger_conf import logger
 from timeit import default_timer
 
 
+
     
 def train():
     torch.manual_seed(0)
@@ -57,24 +58,12 @@ def train():
 
     #Dataset
     train_dataset, test_dataset = load_dataset(
-        dataset=dataset,
+        dataset_type=dataset,
         img_size=(image_size, image_size),
         c=c
         )
     y_train_ctrl = False
-    if dataset == "limited-ct":
-
-        y_train_dataset, y_test_dataset = load_dataset(
-            dataset=dataset,
-            img_size=(image_size, image_size),
-            c=c,
-            cond=True
-        )
-        train_dataset = SequenceWrapper(train_dataset)
-        y_train_dataset = SequenceWrapper(y_train_dataset)
-        train_dataset = train_dataset.zip(y_train_dataset)
-        # y_train_loader = torch.utils.data.DataLoader(y_train_dataset, batch_size=batch_size,
-        #                                      shuffle = True,num_workers=8, pin_memory=True)
+    if dataset == DatasetType.limited_ct:
         y_train_ctrl = True
         
         

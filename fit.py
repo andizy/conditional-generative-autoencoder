@@ -16,7 +16,9 @@ from my_utils import *
 from datasets import *
 
 from logger_conf import logger
-###########Loggers Configuration ###########
+
+from tqdm import tqdm
+
 
 
 
@@ -51,7 +53,7 @@ def fit_aeder(  aeder,
         t1 = default_timer()
         loss_ae_epoch = 0
 
-        for image in train_loader:
+        for _,image in tqdm(enumerate(train_loader)):
             
             if y_train_loader:
                 cond_image = image[1].to(device)
@@ -60,23 +62,22 @@ def fit_aeder(  aeder,
                 cond_image = add_noise(image).to(device)
             image = image.to(device)
             batch_size = image.shape[0]
-            
-            if image.shape[0] != cond_image.shape[0]:
-                cond_image = cond_image[0:image.shape[0]]
-            optimizer_aeder.zero_grad()
-            embed = aeder.encoder(image, cond_image)
-            image_recon = aeder.decoder(embed, cond_image)
+            # if image.shape[0] != cond_image.shape[0]:
+            #     cond_image = cond_image[0:image.shape[0]]
+            # optimizer_aeder.zero_grad()
+            # embed = aeder.encoder(image, cond_image)
+            # image_recon = aeder.decoder(embed, cond_image)
 
-            recon_loss = myloss(image_recon.reshape(batch_size, -1) , image.reshape(batch_size, -1) )
-            regularization = myloss(embed, torch.zeros(embed.shape).to(device))
-            ae_loss = recon_loss + regularization
+            # recon_loss = myloss(image_recon.reshape(batch_size, -1) , image.reshape(batch_size, -1) )
+            # regularization = myloss(embed, torch.zeros(embed.shape).to(device))
+            # ae_loss = recon_loss + regularization
 
-            ae_loss.backward()
+            # ae_loss.backward()
     
-            optimizer_aeder.step()
-            loss_ae_epoch += ae_loss.item()
+            # optimizer_aeder.step()
+            # loss_ae_epoch += ae_loss.item()
             
-        scheduler_aeder.step()
+        # scheduler_aeder.step()
 
         t2 = default_timer()
 
@@ -109,7 +110,9 @@ def fit_aeder(  aeder,
         
         
         if (ep + 1) % plot_per_num_epoch == 0 or ep + 1 == epochs_aeder:
-            sample_number = 25
+            
+            sample_number = 14
+
             ngrid = int(np.sqrt(sample_number))
             
             image_np = image.detach().cpu().numpy().transpose(0,2,3,1)
@@ -177,7 +180,7 @@ def fit_flow(nfm,
         nfm.train()
         t1 = default_timer()
         loss_flow_epoch = 0
-        for image in train_loader:
+        for _, image in tqdm(enumerate(train_loader)):
             optimizer_flow.zero_grad()
             #add noise to the image to use is as conditional image
             if y_train_loader:

@@ -163,8 +163,9 @@ class CondEncoder(nn.Module):
             for i in range(len(num_layers)):
                 CNNs.append(nn.Conv2d(prev_ch, num_layers[i] ,3,
                                       padding = 'same'))
-                prev_ch = num_layers[i]
                 cond_nets.append(CondNetAutoEncoder(in_res= self.in_res, c=self.c, out_res= self.in_res//(2**(4 + i+1)),out_c=num_layers[i]))
+                prev_ch = num_layers[i]
+                # print(f" Encoder channels ")
         
         self.CNNs = nn.ModuleList(CNNs)
         self.maxpool = nn.MaxPool2d(2, 2)
@@ -215,6 +216,14 @@ class CondDecoder(nn.Module):
                     stride=2,padding = 1, output_padding=1))
                 CNNs.append(nn.Conv2d(128, num_layers[i] ,3,
                     padding = 'same'))
+                calculatet_i  = len(num_layers) - i
+                cond_nets.append(
+                    CondNetAutoEncoder(
+                        in_res= self.in_res, 
+                        c=self.c, 
+                        out_res= self.in_res//(2**(calculatet_i-1)),
+                        out_c=num_layers[i]
+                        ))
                 prev_ch = num_layers[i]
 
         elif in_res == 64:
