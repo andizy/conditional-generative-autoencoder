@@ -1,9 +1,11 @@
 import argparse
+from cmath import sqrt
 import numpy as np
 import torch
 from conditional_network import CondNetNF
 import cv2
-
+import torch
+import os 
 
 def data_normalization(x):
     '''Normalize data between -1 and 1'''
@@ -117,6 +119,17 @@ def conditional_sampling(pz , inj_model , bij_model , x_test , y_test ,
     print('SSIM of MAP:{:.3f}'.format(SSIM_MAP/n_test))
     return x_sampled_all , y_s_single.numpy() , snr_MMSE,  SSIM_MMSE/n_test
 
+def sampling(y_dataset, ae_model, nf_model, device="cpu"):
+    """This function can be used to generate sample from the trained model
+    """
+    samples = []
+    for y in y_dataset:
+        y = y.to(device)
+        sample_num = torch.tensor(y.shape[0]).to(device)
+        z_hat = nf_model.sample(y=y, num_samples=sample_num)
+        x_hat  = ae_model.decoder(z_hat[0], y).detach().cpu().numpy()
+        samples.append((y,x_hat))
+    return samples
 
 
 def SNR(x_true , x_pred):
@@ -265,3 +278,7 @@ def to_device(data, device):
         return [to_device(x, device) for x in data]
     return data.to(device, non_blocking=True)
 
+def mean(x):
+    """Compute the mean of a dataset"""
+
+    

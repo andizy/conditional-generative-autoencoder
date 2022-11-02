@@ -62,22 +62,22 @@ def fit_aeder(  aeder,
                 cond_image = add_noise(image).to(device)
             image = image.to(device)
             batch_size = image.shape[0]
-            # if image.shape[0] != cond_image.shape[0]:
-            #     cond_image = cond_image[0:image.shape[0]]
-            # optimizer_aeder.zero_grad()
-            # embed = aeder.encoder(image, cond_image)
-            # image_recon = aeder.decoder(embed, cond_image)
+            if image.shape[0] != cond_image.shape[0]:
+                cond_image = cond_image[0:image.shape[0]]
+            optimizer_aeder.zero_grad()
+            embed = aeder.encoder(image, cond_image)
+            image_recon = aeder.decoder(embed, cond_image)
 
-            # recon_loss = myloss(image_recon.reshape(batch_size, -1) , image.reshape(batch_size, -1) )
-            # regularization = myloss(embed, torch.zeros(embed.shape).to(device))
-            # ae_loss = recon_loss + regularization
+            recon_loss = myloss(image_recon.reshape(batch_size, -1) , image.reshape(batch_size, -1) )
+            regularization = myloss(embed, torch.zeros(embed.shape).to(device))
+            ae_loss = recon_loss + regularization
 
-            # ae_loss.backward()
+            ae_loss.backward()
     
-            # optimizer_aeder.step()
-            # loss_ae_epoch += ae_loss.item()
+            optimizer_aeder.step()
+            loss_ae_epoch += ae_loss.item()
             
-        # scheduler_aeder.step()
+        scheduler_aeder.step()
 
         t2 = default_timer()
 
@@ -111,7 +111,7 @@ def fit_aeder(  aeder,
         
         if (ep + 1) % plot_per_num_epoch == 0 or ep + 1 == epochs_aeder:
             
-            sample_number = 14
+            sample_number = 9
 
             ngrid = int(np.sqrt(sample_number))
             
@@ -229,13 +229,13 @@ def fit_flow(nfm,
         
             if not os.path.exists(image_path_generated):
                 os.mkdir(image_path_generated)
-            sample_number = 25
+            sample_number = 9
             ngrid = int(np.sqrt(sample_number))
             
             #####Generating sample data########
             num_samples = torch.tensor(sample_number).to(device)
-            y_copy = y[0:25,]
-            cond_image_bound = cond_image[0:25]
+            y_copy = y[0:sample_number,]
+            cond_image_bound = cond_image[0:sample_number]
             y_copy = y_copy.to(device)
             cond_image_bound = cond_image_bound.to(device)
             generated_embed, _ = nfm.sample(y=y_copy, num_samples=num_samples)
