@@ -10,6 +10,7 @@ import numpy as np
 from my_utils import sampling, flags, get_default_devices
 from datasets import load_dataset, DatasetType
 from dataset_stat import *
+from pgd import pgd, pgd_l2
 
 import os
 
@@ -91,7 +92,10 @@ def delta_value():
     nfm.load_state_dict(checkpoint_flow['model_state_dict'])
     optimizer_flow.load_state_dict(checkpoint_flow['optimizer_state_dict'])
     print('Flow model is restored...')
-    
-    #TODO train the delta with gradient and save it for the NFM
+    Ytr = next(iter(train_loader))
+    delta = pgd_l2(nf_model=nfm, ae_model=aeder, Y=Ytr, epsilon=2, alpha=0.1, num_iter=40, device=device)
+    # delta = pgd(nf_model=nfm, ae_model=aeder,loss=delta_loss, Y=Ytr, epsilon=2, alpha=0.1, num_iter=40, device=device)
+    print(delta.shape)
+    print(delta.max())
 if __name__ == "__main__":
     delta_value()
