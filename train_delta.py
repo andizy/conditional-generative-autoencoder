@@ -10,7 +10,7 @@ import numpy as np
 from my_utils import sampling, flags, get_default_devices
 from datasets import load_dataset, DatasetType
 from dataset_stat import *
-from pgd import pgd, pgd_l2
+from pgd import pgd, pgd_l2, pgd_l2_z_noise, pgd_l2_dataset
 
 import os
 
@@ -94,6 +94,9 @@ def delta_value():
     print('Flow model is restored...')
     Ytr = next(iter(train_loader))
     delta = pgd_l2(nf_model=nfm, ae_model=aeder, Y=Ytr, epsilon=2, alpha=0.1, num_iter=40, device=device)
+    # delta = pgd_l2_dataset(nf_model=nfm, ae_model=aeder, Ytr=train_loader, epsilon=2, alpha=0.1, num_iter=40, device=device)
+    # delta = pgd_l2_z_noise(nf_model=nfm, ae_model=aeder,latent_space=latent_dim ,Y=Ytr, epsilon=2, alpha=0.1, num_iter=40, device=device)
+    
     # delta = pgd(nf_model=nfm, ae_model=aeder,loss=delta_loss, Y=Ytr, epsilon=2, alpha=0.1, num_iter=40, device=device)
     print(delta.shape)
     print(delta.max())
