@@ -95,7 +95,7 @@ def sample():
     samples = sampling(y, aeder, nfm, device=device)
     
     image_path_generated = os.path.join(
-                all_experiments, 'generated')
+                exp_path, 'generated')
     samples_name="generated_sample"
     if os.path.exists(image_path_generated) == False:
             os.mkdir(image_path_generated)

@@ -41,7 +41,6 @@ def delta_value():
     exp_path = all_experiments + 'Autoencoder_' + dataset + '_' \
         + str(flow_depth) + '_' + str(latent_dim) + '_' + str(image_size) + '_' + desc
     assert os.path.exists(exp_path), f"Experiment :'{exp_path}' is not existing, pls check paramethers"
-
     train_dataset, test_dataset = load_dataset(
         dataset_type=dataset,
         img_size=(image_size, image_size),
@@ -98,7 +97,9 @@ def delta_value():
     # delta = pgd_l2_z_noise(nf_model=nfm, ae_model=aeder,latent_space=latent_dim ,Y=Ytr, epsilon=2, alpha=0.1, num_iter=40, device=device)
     
     # delta = pgd(nf_model=nfm, ae_model=aeder,loss=delta_loss, Y=Ytr, epsilon=2, alpha=0.1, num_iter=40, device=device)
-    print(delta.shape)
-    print(delta.max())
+    torch.save({
+                    'delta': delta,
+                    }, os.path.join(exp_path, 'delta.pt'))
+    print("Training is done")
 if __name__ == "__main__":
     delta_value()
