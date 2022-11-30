@@ -103,7 +103,7 @@ class Invertible1x1Conv(Flow):
             W = self.P @ L @ U
         return W
 
-    def forward(self, z):
+    def forward(self, z,y):
         if self.use_lu:
             W = self._assemble_W(inverse=True)
             log_det = -torch.sum(self.log_S)
@@ -120,7 +120,7 @@ class Invertible1x1Conv(Flow):
         log_det = log_det * z.size(2) * z.size(3)
         return z_, log_det
 
-    def inverse(self, z):
+    def inverse(self, z,y):
         if self.use_lu:
             W = self._assemble_W()
             log_det = torch.sum(self.log_S)

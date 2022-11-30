@@ -6,6 +6,8 @@ from conditional_network import CondNetNF
 import cv2
 import torch
 import os 
+from skimage.metrics import structural_similarity as ssim
+
 
 def data_normalization(x):
     '''Normalize data between -1 and 1'''
@@ -16,8 +18,9 @@ def data_normalization(x):
     return x
 
 
-def conditional_sampling(pz , inj_model , bij_model , x_test , y_test ,
-                         n_average , n_test = 5 , n_sample_show = 4):
+
+def conditional_sampling(nf_model , auto_model , x_test , y_test ,
+                         n_average , n_test = 5 , n_sample_show = 4, device = "cpu", exp_path=None):
     '''Generate posterior samples, MMSE, MAP and UQ'''
     
     def normalization(image , min_x , max_x):
@@ -28,8 +31,9 @@ def conditional_sampling(pz , inj_model , bij_model , x_test , y_test ,
         
         return image
     
-    y_s_single = y_test[1*n_test:2 * n_test]
+    y_s_single = y_test[1*n_test:2 * n_test].to(device)
     y_reshaped = y_test[1*n_test:2 * n_test].numpy()
+    # print(y_reshaped.shape)
     if np.shape(y_s_single)[1] != np.shape(x_test)[1]:
         
         r = np.shape(x_test)[1]
@@ -48,38 +52,23 @@ def conditional_sampling(pz , inj_model , bij_model , x_test , y_test ,
          
         y_reshaped = y_reshaped_orig
     
-    y_s = tf.repeat(y_s_single, n_average, axis = 0)
-    
+
+    y_s = y_s_single.repeat_interleave(n_average, dim=0)
     gt = x_test[1*n_test:2 * n_test].numpy()
     
-    z_random_base = pz.prior.sample(n_average * n_test)
-    z_random_base_mean = (z_random_base[:n_test] - pz.mu) * 0 + pz.mu
+    z_random = nf_model.sample(y=y_s, num_samples=n_average*5)
+    z_random_mean = nf_model.sample_mu(y=y_s_single, num_samples=5)
     
-    z_random = bij_model(z_random_base ,
-                            y_s,
-                            reverse = True)[0] # Intermediate samples
+    x_sampled = auto_model.decoder(z_random[0], y_s).detach().cpu().numpy()
+    x_MAP = auto_model.decoder(z_random_mean[0], y_s_single).detach().cpu().numpy()
     
-    z_random_mean = bij_model(z_random_base_mean ,
-                            y_s_single,
-                            reverse = True)[0] # Intermediate samples
-    
-    
-    x_sampled = inj_model(z_random,
-                      y_s,
-                      reverse = True)[0].numpy() 
-    
-    x_MAP = inj_model(z_random_mean,
-                      y_s_single,
-                      reverse = True)[0].numpy() 
-        
-    
+
     n_sample = n_sample_show + 5 
     final_shape = [n_test*(n_sample), np.shape(x_sampled)[1] , np.shape(x_sampled)[2],
                    np.shape(x_sampled)[3]]
     x_sampled_all = np.zeros(final_shape)
     mean_vec = np.zeros([n_test , np.shape(x_sampled)[1] , np.shape(x_sampled)[2],
                          np.shape(x_sampled)[3]] , dtype = np.float32)
-    
     SSIM_MMSE = 0
     SSIM_pseudo = 0
     SSIM_MAP = 0
@@ -92,32 +81,47 @@ def conditional_sampling(pz , inj_model , bij_model , x_test , y_test ,
         x_sampled_all[i*n_sample + 3 + n_sample_show] = normalization(np.std(x_sampled[i*n_average:i*n_average + n_average] , axis = 0) , gt.min() , gt.max())
 
         mean_vec[i] = np.mean(x_sampled[i*n_average:i*n_average + n_average] , axis = 0)
+        
         SSIM_MMSE = SSIM_MMSE + ssim(mean_vec[i] + 1.0,
                            gt[i] + 1.0,
                            data_range=gt.max() - gt.min(),
-                           multichannel=True)
+                           channel_axis=0
+                           )
         
-        SSIM_pseudo = SSIM_pseudo + ssim(y_reshaped[i] + 1.0,
+        SSIM_pseudo = SSIM_pseudo + ssim(
+                           y_reshaped[i] + 1.0,
                            gt[i] + 1.0,
                            data_range=gt.max() - gt.min(),
-                           multichannel=True)
+                           channel_axis=0
+                           )
         
         SSIM_MAP = SSIM_MAP + ssim(x_MAP[i] + 1.0,
                            gt[i] + 1.0,
                            data_range=gt.max() - gt.min(),
-                           multichannel=True)
+                           channel_axis = 0
+                           )
     
     snr_pseudo = SNR(gt +1.0 , y_reshaped + 1.0 )
     snr_MMSE = SNR(gt + 1.0 , mean_vec + 1.0)
     snr_MAP = SNR(gt + 1.0 , x_MAP + 1.0)
 
-    print('SNR of pseudo inverse:{:.3f}'.format(snr_pseudo))
-    print('SNR of MMSE:{:.3f}'.format(snr_MMSE))
-    print('SNR of MAP:{:.3f}'.format(snr_MAP))
-    print('SSIM of pseudo inverse:{:.3f}'.format(SSIM_pseudo/n_test))
-    print('SSIM of MMSE:{:.3f}'.format(SSIM_MMSE/n_test))
-    print('SSIM of MAP:{:.3f}'.format(SSIM_MAP/n_test))
-    return x_sampled_all , y_s_single.numpy() , snr_MMSE,  SSIM_MMSE/n_test
+    # print('SNR of pseudo inverse:{:.3f}'.format(snr_pseudo))
+    # print('SNR of MMSE:{:.3f}'.format(snr_MMSE))
+    # print('SNR of MAP:{:.3f}'.format(snr_MAP))
+    # print('SSIM of pseudo inverse:{:.3f}'.format(SSIM_pseudo/n_test))
+    # print('SSIM of MMSE:{:.3f}'.format(SSIM_MMSE/n_test))
+    # print('SSIM of MAP:{:.3f}'.format(SSIM_MAP/n_test))
+    print('SNR of pseudo inverse:{:.3f} | SNR of MMSE:{:.3f} | SNR of MAP:{:.3f}| SSIM of pseudo inverse:{:.3f} | SSIM of MMSE:{:.3f} | SSIM of MAP:{:.3f}'.format(
+                            snr_pseudo,snr_MMSE, snr_MAP, 
+                            SSIM_pseudo/n_test, SSIM_MMSE/n_test, SSIM_MAP/n_test))
+    if exp_path:
+        with open(os.path.join(exp_path, 'test_results.txt'), 'a') as file:
+                        file.write('SNR of pseudo inverse:{:.3f} | SNR of MMSE:{:.3f} | SNR of MAP:{:.3f}| SSIM of pseudo inverse:{:.3f} | SSIM of MMSE:{:.3f} | SSIM of MAP:{:.3f}'.format(
+                            snr_pseudo,snr_MMSE, snr_MAP, 
+                            SSIM_pseudo/n_test, SSIM_MMSE/n_test, SSIM_MAP/n_test))
+                        file.write('\n')
+    return x_sampled_all , y_s_single , snr_MMSE,  SSIM_MMSE/n_test
+
 
 def sampling(y_dataset, ae_model, nf_model, device="cpu"):
     """This function can be used to generate sample from the trained model
@@ -252,16 +256,28 @@ def flags():
         help='Train normalizing flow network')
     
     parser.add_argument(
+        '--train_delta',
+        type=int,
+        default=1,
+        help='Train delta Adversial robustnes network')
+    
+    parser.add_argument(
         '--restore_flow',
         type=int,
         default=1,
         help='Restore the trained flow if exists')
     
     parser.add_argument(
+        '--flow_type',
+        type=str,
+        default='RealNVP',
+        help='Type of normalizing flow')
+    parser.add_argument(
         '--test_pct',
         type=int,
         default=1,
         help='Percentage to split the test dataset')
+    
     
     FLAGS, unparsed = parser.parse_known_args()
     return FLAGS, unparsed
@@ -281,4 +297,6 @@ def to_device(data, device):
 def mean(x):
     """Compute the mean of a dataset"""
 
-    
+class NFType:
+    glow = "GLOW"
+    real_nvp = "RealNVP"

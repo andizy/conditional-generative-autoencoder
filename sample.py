@@ -3,11 +3,11 @@ import torch
 import torch.nn.functional as F
 
 from autoencoder import Autoencoder, CondEncoder, CondDecoder
-from flow_model import real_nvp
+from flow_model import real_nvp, glow
 
 import numpy as np
 
-from my_utils import sampling, flags, get_default_devices
+from my_utils import sampling, flags, get_default_devices, NFType
 from datasets import load_dataset, DatasetType
 from dataset_stat import *
 
@@ -30,6 +30,7 @@ def sample():
     flow_depth = FLAGS.flow_depth
     latent_dim = FLAGS.latent_dim
     batch_size = FLAGS.batch_size
+    flow_type = FLAGS.flow_type
     
     
 
@@ -81,7 +82,10 @@ def sample():
     
     #load  NFM
 
-    nfm = real_nvp(latent_dim = latent_dim, K = flow_depth, in_res = image_size , c = c)
+    if flow_type == NFType.real_nvp:
+        nfm = real_nvp(latent_dim = latent_dim, K = flow_depth, in_res = image_size , c = c)
+    else:
+        nfm = glow(latent_dim = latent_dim, K = flow_depth, in_res = image_size , c = c)
     nfm = nfm.to(device)
     optimizer_flow = torch.optim.Adam(nfm.parameters(), lr=1e-4, weight_decay=1e-5)
     checkpoint_flow_path = os.path.join(exp_path, 'flow.pt')

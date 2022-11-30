@@ -386,8 +386,7 @@ class CondNormalizingFlow(nn.Module):
         Constructor
         :param q0: Base distribution
         :param flows: List of flows
-        :param p: Target distribution
-        """
+        distribution """
         super().__init__()
         self.q0 = q0
         self.flows = nn.ModuleList(flows)
@@ -476,7 +475,19 @@ class CondNormalizingFlow(nn.Module):
             z, log_det = flow(z,y)
             log_q -= log_det
         return z, log_q
-
+    
+    def sample_mu(self,y, num_samples=1):
+        """
+        Computes mean of flow-based approximate distribution
+        :return: Mean
+        """
+        z, log_q = self.q0(num_samples)
+        z-= self.q0.loc
+        for flow in self.flows:
+            z, log_det = flow(z,y)
+            log_q -= log_det
+        return z
+    
     def log_prob(self, x, y):
         """
         Get log probability for batch

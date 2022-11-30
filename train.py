@@ -11,7 +11,7 @@ import os
 
 from autoencoder import Autoencoder, Encoder, Decoder, CondEncoder, CondDecoder
 from conditional_network import CondNetNF
-from flow_model import real_nvp
+from flow_model import real_nvp, glow
 
 from my_utils import *
 from datasets import *
@@ -37,6 +37,7 @@ def train():
     desc = FLAGS.desc
     image_size = FLAGS.res
     c = FLAGS.channel
+    flow_type = FLAGS.flow_type
     remove_all = bool(FLAGS.remove_all)
     train_aeder = bool(FLAGS.train_aeder)
     train_flow = bool(FLAGS.train_flow)
@@ -138,8 +139,12 @@ def train():
                 y_train_loader=y_train_ctrl if y_train_ctrl else None                
                 )
 
-    #2.Intilize the nfm model 
-    nfm = real_nvp(latent_dim = latent_dim, K = flow_depth, in_res = image_size , c = c)
+    #2.Intilize the nfm model
+    if flow_type == NFType.real_nvp:
+        nfm = real_nvp(latent_dim = latent_dim, K = flow_depth, in_res = image_size , c = c)
+    else:
+        nfm = glow(latent_dim = latent_dim, K = flow_depth, in_res = image_size , c = c)
+
     nfm = nfm.to(device)
     num_param_nfm = count_parameters(nfm)
     print('Number of trainable parametrs of flow: {}'.format(num_param_nfm))
@@ -186,6 +191,28 @@ def train():
             y_train_loader=y_train_ctrl
             )
 
+    image_path_generated = os.path.join(
+                exp_path, 'test_cond_generated')
+    
+    
+    if os.path.exists(image_path_generated) == False:
+            os.mkdir(image_path_generated)
+    
+    n_test = 5 # Number of test samples
+    n_sample_show = 4 # Number of posterior samples to show for each test sample
+    n_average = 25 # number of posterior samples used for MMSE and UQ estimation
+    
+    for i,y in enumerate(test_loader):
+        x_sampled_conditional = conditional_sampling(nfm,aeder, 
+                                                    y[0],y[1],n_average,
+                                                    n_test, n_sample_show, 
+                                                    device)[0]
+        
+        cv2.imwrite(os.path.join(image_path_generated, f'posterior_samples_{i}.png'),
+                    x_sampled_conditional[:, :, :, ::-1].reshape(
+            n_test, n_sample_show + 5,
+            image_size, image_size, c).swapaxes(1, 2)
+            .reshape(n_test*image_size, -1, c)*127.5 + 127.5)
 
 if __name__ == '__main__':
     train()
