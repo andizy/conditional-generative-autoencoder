@@ -136,16 +136,43 @@ def sampling(y_dataset, ae_model, nf_model, device="cpu"):
     return samples
 
 
+
 def SNR(x_true , x_pred):
-    '''Calculate SNR of a barch of true and their estimations'''
-    x_true = np.reshape(x_true , [np.shape(x_true)[0] , -1])
-    x_pred = np.reshape(x_pred , [np.shape(x_pred)[0] , -1])
+    '''Calculate SNR of a batch of true and their estimations'''
+
+    # x_true = np.reshape(x_true , [np.shape(x_true)[0] , -1])
+    # x_pred = np.reshape(x_pred , [np.shape(x_pred)[0] , -1])
+
+    snr = 0
+    for i in range(x_true.shape[0]):
+        Noise = x_true[i] - x_pred[i]
+        Noise_power = np.sum(np.square(np.abs(Noise)))
+        Signal_power = np.sum(np.square(np.abs(x_true[i])))
+        snr += 10*np.log10(Signal_power/Noise_power)
+
+    return snr/x_true.shape[0]
+
+def SSIM(x_true , x_pred):
     
-    Noise = x_true - x_pred
-    Noise_power = np.sum(np.square(np.abs(Noise)), axis = -1)
-    Signal_power = np.sum(np.square(np.abs(x_true)) , axis = -1)
-    SNR = 10*np.log10(np.mean(Signal_power/Noise_power))
-    return SNR
+    s = 0
+    for i in range(np.shape(x_pred)[0]):
+        s += ssim(x_pred[i],
+             x_true[i],
+             data_range=x_true[i].max() - x_true[i].min(),
+             channel_axis=0
+             )
+        
+    return s/np.shape(x_pred)[0]
+# def SNR(x_true , x_pred):
+#     '''Calculate SNR of a barch of true and their estimations'''
+#     x_true = np.reshape(x_true , [np.shape(x_true)[0] , -1])
+#     x_pred = np.reshape(x_pred , [np.shape(x_pred)[0] , -1])
+    
+#     Noise = x_true - x_pred
+#     Noise_power = np.sum(np.square(np.abs(Noise)), axis = -1)
+#     Signal_power = np.sum(np.square(np.abs(x_true)) , axis = -1)
+#     SNR = 10*np.log10(np.mean(Signal_power/Noise_power))
+#     return SNR
 
 
 def count_parameters(model):
@@ -277,6 +304,12 @@ def flags():
         type=int,
         default=1,
         help='Percentage to split the test dataset')
+    
+    parser.add_argument(
+        '--mean_sample',
+        type=int,
+        default=0,
+        help='Mean Sample Adversial Attack')
     
     
     FLAGS, unparsed = parser.parse_known_args()

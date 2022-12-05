@@ -486,7 +486,7 @@ class CondNormalizingFlow(nn.Module):
         for flow in self.flows:
             z, log_det = flow(z,y)
             log_q -= log_det
-        return z
+        return z, log_q
     
     def log_prob(self, x, y):
         """
