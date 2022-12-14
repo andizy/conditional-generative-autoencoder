@@ -10,7 +10,7 @@ import numpy as np
 from my_utils import sampling, flags, get_default_devices, NFType, SNR, SSIM
 from datasets import load_dataset, DatasetType
 from dataset_stat import *
-from pgd import pgd, pgd_l2, pgd_l2_z_noise, pgd_l2_dataset, fgsm
+from pgd import *
 
 import os
 
@@ -64,7 +64,6 @@ def delta_value():
     learning_rate = 1e-4
     step_size = 50
     gamma = 0.5
-    myloss = F.mse_loss
     #load autoencoder 
     enc = CondEncoder(latent_dim = latent_dim, in_res = image_size , c = c).to(device)
     dec = CondDecoder(latent_dim = latent_dim, in_res = image_size , c = c).to(device)
@@ -118,10 +117,15 @@ def delta_value():
         if first_loop:
             if train_delta:
                 
-                delta = fgsm(nfm=nfm, aem=aeder,
-                            X=Ytr[0], y=Ytr[1], mean_sample=mean_sample,
-                            epsilon=2, alpha=0.1, num_iter=10,
-                            device=device, exp_path=adver_path_generated)
+                # delta = fgsm_relnvp(nfm=nfm, aem=aeder,
+                #             X=Ytr[0], y=Ytr[1], mean_sample=mean_sample,
+                #             epsilon=2, alpha=1e-5 , num_iter=100,
+                #             device=device, exp_path=adver_path_generated)
+                delta = batch_delta(nfm=nfm, aem=aeder,
+                            X=Ytr[0], y=Ytr[1],
+                            epsilon=4, alpha=0.1 , num_iter=30,
+                            device=device)
+                print("Delta is computed ... ", delta.shape)
                 if mean_sample:
                     torch.save({
                                     'delta': delta,
@@ -138,9 +142,11 @@ def delta_value():
                     delta = torch.load(os.path.join(exp_path, 'delta.pt'))['delta']
                 print("Loading of deta is done ... ")
             first_loop = False
+        
         delta = delta.to(device)
         z_delta, _ = nfm.sample(Ytr[1].to(device)+delta)
-        x_hat_delta = aeder.decoder(z_delta, Ytr[1].to(device))
+        # x_hat_delta = aeder.decoder(z_delta, Ytr[1].to(device))
+        x_hat_delta = aeder.decoder(z_delta, Ytr[1].to(device)+delta)
         
         z, _ = nfm.sample(Ytr[1].to(device))
         x_hat = aeder.decoder(z, Ytr[1].to(device))

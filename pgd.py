@@ -11,6 +11,26 @@ def norms_latent_space(Z):
     """Return the norms of the input tensor over all but the first dimension """
     return Z.view(Z.shape[0], -1).norm(dim=0) 
 
+def batch_delta(
+    nfm, aem, X, y, epsilon, alpha, num_iter,device):
+    """Construct PGD adversial examples on the examples X"""
+    X = X.to(device)
+    y = y.to(device)
+    assert X.shape == y.shape, f"X and y should have the same shape, but they are {X.shape} and {y.shape}"
+    delta = torch.zeros_like(X, requires_grad=True)
+    for i in range(num_iter):
+        z_delta, log_q_delta = nfm.sample(y=y+delta, num_samples=y.shape[0])
+        z, log_q = nfm.sample(y=y, num_samples=y.shape[0])
+        x_hat_delta = aem.decoder(z_delta, y+delta)
+        x_hat = aem.decoder(z, y)
+        loss = F.mse_loss(x_hat_delta, x_hat)
+        loss.backward()
+        delta.data += alpha*delta.grad.detach() / norms(delta.grad.detach())
+        delta.data  = torch.min(torch.max(delta.detach(), -(y+delta)), 1-(y+delta))
+        delta.data *= epsilon / norms(delta.detach()).clamp(min=epsilon)
+        delta.grad.zero_()     
+    return delta.detach()
+
 
 # def fgsm(nfm, aem, X, y, mean_sample, epsilon, alpha, num_iter,device):
 #     """Construct FGSM adversial examples on the examples X"""
@@ -42,23 +62,35 @@ def fgsm(nfm, aem, X, y, mean_sample,epsilon, alpha, num_iter,device, exp_path):
     assert X.shape == y.shape, f"X and y should have the same shape, but they are {X.shape} and {y.shape}"
     assert X.shape[0] == 1, "Only one sample is allowed"
     delta = torch.zeros_like(X, requires_grad=True)
+    prev_delta = None
     for i in range(num_iter):
+        # if i >5:
+        #     alpha = 0.1
+        #     # epsilon = 4
+        # elif i > 100:
+        #     alpha = 0.1
         if mean_sample:
             z_delta, log_q_delta = nfm.sample_mu(y=y+delta)
             z, log_q = nfm.sample_mu(y=y)        
         else:
             z_delta, log_q_delta = nfm.sample(y=y+delta)
-        z, log_q = nfm.sample(y=y)
+            z, log_q = nfm.sample(y=y)
         x_hat_delta = aem.decoder(z_delta, y+delta)
-        x_hat = aem.decoder(z, y+delta)
+        x_hat = aem.decoder(z, y)
         loss = F.mse_loss(x_hat_delta, x_hat)
         loss.backward()
-        print("Train the delta with L2 norm", loss)
-        # delta.data += alpha*delta.grad.detach() / norms(delta.grad.detach())
-        # delta.data *= epsilon / norms(delta.detach()).clamp(min=epsilon)
-        delta.data *= epsilon
+        # print("Train the delta with L2 norm", loss)
+        # # delta.data = (delta + alpha*delta.grad.detach().sign()).clamp(-epsilon,epsilon)
+        # delta.data += alpha*delta.grad #/ norms(delta.grad.detach())
+        # # delta.data *= epsilon / norms(delta.detach()).clamp(min=epsilon)
+        # # delta.data *= epsilon
+        # delta.grad.zero_()
+        delta.data += alpha*delta.grad.detach() / norms(delta.grad.detach())
+        delta.data  = torch.min(torch.max(delta.detach(), -(y+delta)), 1-(y+delta))
+        delta.data *= epsilon / norms(delta.detach()).clamp(min=epsilon)
         delta.grad.zero_()
         loss_hist = np.append(loss_hist, loss.detach().cpu().numpy())
+        print('ep: %03d/%03d | delta_loss %.4f ' %(i, num_iter, loss))
     plt.plot(np.arange(num_iter), loss_hist, )
     plt.title('Delta loss')
     plt.xlabel('iterations')
@@ -71,6 +103,64 @@ def fgsm(nfm, aem, X, y, mean_sample,epsilon, alpha, num_iter,device, exp_path):
         np.save(os.path.join(exp_path, 'delta_loss.npy'), loss_hist)
     plt.close()
         
+    return delta.detach()
+def fgsm_relnvp(nfm, aem, X, y, mean_sample,epsilon, alpha, num_iter,device, exp_path):
+    """Construct FGSM adversial examples on the examples X"""
+    loss_hist = np.array([])
+    X = X.to(device)
+    y = y.to(device)
+    assert X.shape == y.shape, f"X and y should have the same shape, but they are {X.shape} and {y.shape}"
+    assert X.shape[0] == 1, "Only one sample is allowed"
+    delta = torch.zeros_like(X, requires_grad=True)
+    first = True
+    for i in range(num_iter):
+        if mean_sample:
+            z_delta, log_q_delta = nfm.sample_mu(y=y+delta)
+            z, log_q = nfm.sample_mu(y=y)        
+        else:
+            z_delta, log_q_delta = nfm.sample(y=y+delta)
+            z, log_q = nfm.sample(y=y)
+        loss = F.cross_entropy(z_delta,z)
+        # loss = nfm.forward_kld(z_delta, y)
+        if ~(torch.isnan(loss) | torch.isinf(loss)):
+            loss.backward()
+            delta.grad = torch.nan_to_num(delta.grad, nan=0.0, posinf=0.0, neginf=0.0)
+            if torch.isnan(delta.grad).any() or torch.isinf(delta.grad).any():
+                print("nan in delta grad")
+            # norms_val = norms(delta.grad.detach())
+            # norms_val = norms_val.clamp(min=1e-9)
+            print(norms(delta.grad.detach()).clamp(min=0e-2))
+            if first:
+                first = False
+                grad_norm = alpha*delta.grad.detach() / norms(delta.grad.detach()).clamp(min=1e-5)
+            grad_norm = alpha*delta.grad.detach() / norms(delta.grad.detach())
+            if torch.isnan(grad_norm).any() :
+                # grad_norm = torch.nan_to_num(grad_norm, nan=0e9, posinf=0.1, neginf=-0.1)
+                print("nan in delta before")
+                print(grad_norm)
+            
+            delta.data = torch.min(torch.max(delta.detach(), -y), 1-y)
+            delta.data += grad_norm
+            # delta.data += alpha*delta.grad.detach() / norms(delta.grad.detach())
+            # if torch.isnan(delta).any() :
+            #     print("nan in delta")
+            #     print(delta)
+            # i                                                                                                                # delta.data *= epsilon / norms(delta.detach()).clamp(min=epsilon)
+            delta.grad.zero_()
+        print('ep: %03d/%03d | delta_loss %.4f ' %(i, num_iter, loss))
+        loss_hist = np.append(loss_hist, loss.detach().cpu().numpy())
+    plt.plot(np.arange(num_iter), loss_hist, )
+    plt.title('Delta loss')
+    plt.xlabel('iterations')
+    plt.ylabel('MSE loss')
+    if mean_sample:
+        plt.savefig(os.path.join(exp_path, 'delta_loss_mu.jpg'))
+        np.save(os.path.join(exp_path, 'delta_loss_mu.npy'), loss_hist)
+    else:
+        plt.savefig(os.path.join(exp_path, 'delta_loss.jpg'))
+        np.save(os.path.join(exp_path, 'delta_loss.npy'), loss_hist)
+    plt.close()
+            
     return delta.detach()
 
     

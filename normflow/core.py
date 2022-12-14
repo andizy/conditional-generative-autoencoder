@@ -482,7 +482,8 @@ class CondNormalizingFlow(nn.Module):
         :return: Mean
         """
         z, log_q = self.q0(num_samples)
-        z-= self.q0.loc
+        z -= self.q0.loc
+        # z= self.q0.loc
         for flow in self.flows:
             z, log_det = flow(z,y)
             log_q -= log_det

@@ -15,7 +15,7 @@ from flow_model import real_nvp, glow
 
 from my_utils import *
 from datasets import *
-from fit import fit_aeder, fit_flow
+from fit import fit_aeder, fit_flow, fit_flow_with_delta
 from logger_conf import logger
 
 from timeit import default_timer
@@ -42,6 +42,7 @@ def train():
     train_aeder = bool(FLAGS.train_aeder)
     train_flow = bool(FLAGS.train_flow)
     restore_flow = bool(FLAGS.restore_flow)
+    add_delta = bool(FLAGS.add_delta)
     enable_cuda = True
     device = get_default_devices(gpu_num=gpu_num, enable_cuda=enable_cuda)
     all_experiments = 'experiments/'
@@ -175,21 +176,38 @@ def train():
     
 
     if train_flow:
-        fit_flow(nfm, 
-            aeder,
-            optimizer_flow,
-            scheduler_flow,
-            epochs_flow, 
-            train_loader,
-            device,
-            plot_per_num_epoch,
-            ntrain,
-            exp_path,
-            checkpoint_flow_path,
-            image_size,
-            c,
-            y_train_loader=y_train_ctrl
-            )
+        if add_delta:
+            fit_flow_with_delta(nfm, 
+                aeder,
+                optimizer_flow,
+                scheduler_flow,
+                epochs_flow, 
+                train_loader,
+                device,
+                plot_per_num_epoch,
+                ntrain,
+                exp_path,
+                checkpoint_flow_path,
+                image_size,
+                c,
+                y_train_loader=y_train_ctrl
+                )
+        else:
+            fit_flow(nfm, 
+                aeder,
+                optimizer_flow,
+                scheduler_flow,
+                epochs_flow, 
+                train_loader,
+                device,
+                plot_per_num_epoch,
+                ntrain,
+                exp_path,
+                checkpoint_flow_path,
+                image_size,
+                c,
+                y_train_loader=y_train_ctrl
+                )
 
     image_path_generated = os.path.join(
                 exp_path, 'test_cond_generated')

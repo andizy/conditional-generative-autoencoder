@@ -283,6 +283,12 @@ def flags():
         help='Train normalizing flow network')
     
     parser.add_argument(
+        '--add_delta',
+        type=int,
+        default=0,
+        help='Add delta Adversial robustnes network')
+    
+    parser.add_argument(
         '--train_delta',
         type=int,
         default=1,
