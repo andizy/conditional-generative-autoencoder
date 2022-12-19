@@ -209,28 +209,7 @@ def train():
                 y_train_loader=y_train_ctrl
                 )
 
-    image_path_generated = os.path.join(
-                exp_path, 'test_cond_generated')
     
-    
-    if os.path.exists(image_path_generated) == False:
-            os.mkdir(image_path_generated)
-    
-    n_test = 5 # Number of test samples
-    n_sample_show = 4 # Number of posterior samples to show for each test sample
-    n_average = 25 # number of posterior samples used for MMSE and UQ estimation
-    
-    for i,y in enumerate(test_loader):
-        x_sampled_conditional = conditional_sampling(nfm,aeder, 
-                                                    y[0],y[1],n_average,
-                                                    n_test, n_sample_show, 
-                                                    device)[0]
-        
-        cv2.imwrite(os.path.join(image_path_generated, f'posterior_samples_{i}.png'),
-                    x_sampled_conditional[:, :, :, ::-1].reshape(
-            n_test, n_sample_show + 5,
-            image_size, image_size, c).swapaxes(1, 2)
-            .reshape(n_test*image_size, -1, c)*127.5 + 127.5)
 
 if __name__ == '__main__':
     train()

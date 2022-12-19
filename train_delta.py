@@ -11,11 +11,12 @@ from my_utils import sampling, flags, get_default_devices, NFType, SNR, SSIM
 from datasets import load_dataset, DatasetType
 from dataset_stat import *
 from pgd import *
-
+from adversial_pertubation_utils import add_delta_test_dataset, add_delta_posterio_sample
 import os
 
 import cv2
 
+#TODO compute the standart error between X and X_delta the absolute value and show the result as img 
 
 def delta_value():
     torch.manual_seed(0)
@@ -111,20 +112,27 @@ def delta_value():
                     adver_path_generated, 'generated_images')
     if os.path.exists(gen_img_path_generated) == False:
             os.mkdir(gen_img_path_generated)
+    #path for the posterio samples with delta
+    ps_path = os.path.join(adver_path_generated, 'posterior_samples')
+    if os.path.exists(ps_path) == False:
+        os.mkdir(os.path.join(adver_path_generated, 'posterior_samples'))
+    gen_ps_path = os.path.join(ps_path, 'generated_images')
+    if os.path.exists(gen_ps_path) == False:
+        os.mkdir(gen_ps_path)
     
     first_loop = True
     for i,Ytr in enumerate(train_loader):
         if first_loop:
             if train_delta:
                 
-                # delta = fgsm_relnvp(nfm=nfm, aem=aeder,
-                #             X=Ytr[0], y=Ytr[1], mean_sample=mean_sample,
-                #             epsilon=2, alpha=1e-5 , num_iter=100,
-                #             device=device, exp_path=adver_path_generated)
-                delta = batch_delta(nfm=nfm, aem=aeder,
-                            X=Ytr[0], y=Ytr[1],
-                            epsilon=4, alpha=0.1 , num_iter=30,
-                            device=device)
+                delta = fgsm(nfm=nfm, aem=aeder,
+                            X=Ytr[0], y=Ytr[1], mean_sample=mean_sample,
+                            epsilon=3, alpha=0.5 , num_iter=30,
+                            device=device, exp_path=adver_path_generated)
+                # delta = batch_delta(nfm=nfm, aem=aeder,
+                #             X=Ytr[0], y=Ytr[1],
+                #             epsilon=4, alpha=0.1 , num_iter=30,
+                #             device=device)
                 print("Delta is computed ... ", delta.shape)
                 if mean_sample:
                     torch.save({
@@ -144,43 +152,39 @@ def delta_value():
             first_loop = False
         
         delta = delta.to(device)
-        z_delta, _ = nfm.sample(Ytr[1].to(device)+delta)
-        # x_hat_delta = aeder.decoder(z_delta, Ytr[1].to(device))
-        x_hat_delta = aeder.decoder(z_delta, Ytr[1].to(device)+delta)
-        
-        z, _ = nfm.sample(Ytr[1].to(device))
-        x_hat = aeder.decoder(z, Ytr[1].to(device))
 
-        x_hat = x_hat.detach().cpu().numpy()
-        x_hat_delta = x_hat_delta.detach().cpu().numpy()
-        # x_hat = x_hat.detach().cpu().numpy().transpose(0,2,3,1)
-        # x_hat_delta = x_hat_delta.detach().cpu().numpy().transpose(0,2,3,1)
+        #data set samples
+        # z_delta, _ = nfm.sample(Ytr[1].to(device)+delta)
+        # x_hat_delta = aeder.decoder(z_delta, Ytr[1].to(device)+delta)
+        
+        # z, _ = nfm.sample(Ytr[1].to(device))
+        # x_hat = aeder.decoder(z, Ytr[1].to(device))
 
-        snr_delta = SNR(Ytr[0].numpy(), x_hat_delta,)
-        snr = SNR(Ytr[0].numpy(), x_hat,)
-        snr_between = SNR( x_hat, x_hat_delta,)
+        # x_hat = x_hat.detach().cpu().numpy()
+        # x_hat_delta = x_hat_delta.detach().cpu().numpy()
+        # # x_hat = x_hat.detach().cpu().numpy().transpose(0,2,3,1)
+        # # x_hat_delta = x_hat_delta.detach().cpu().numpy().transpose(0,2,3,1)
+        # add_delta_test_dataset(Ytr, x_hat, x_hat_delta, i, mean_sample, adver_path_generated, gen_img_path_generated)
         
-        # ssim_delta = 0
-        ssim_delta = SSIM(Ytr[0].numpy(),x_hat_delta )
-        ssim = SSIM(Ytr[0].numpy(),x_hat)
-        ssim_between = SSIM(x_hat,x_hat_delta)
-        x_hat = x_hat.transpose(0,2,3,1)
-        x_hat_delta = x_hat_delta.transpose(0,2,3,1)
-        print(f"img:{i}, SNR Delta: {snr_delta}, SNR: {snr}, SNR between: {snr_between}, SSIM Delta: {ssim_delta}, SSIM: {ssim}, SSIM between: {ssim_between}")
-        if mean_sample:
-            with open(os.path.join(adver_path_generated, 'results_mu.txt'), 'a') as file:
-                            file.write(f"img:{i}, SNR Delta: {snr_delta}, SNR: {snr}, SNR between: {snr_between}, SSIM Delta: {ssim_delta}, SSIM: {ssim}, SSIM between: {ssim_between}")
-                            file.write('\n')
-        else:
-            with open(os.path.join(adver_path_generated, 'results.txt'), 'a') as file:
-                            file.write(f"img:{i}, SNR Delta: {snr_delta}, SNR: {snr}, SNR between: {snr_between}, SSIM Delta: {ssim_delta}, SSIM: {ssim}, SSIM between: {ssim_between}")
-                            file.write('\n')
-        cv2.imwrite(os.path.join(gen_img_path_generated, f"img_{i}_delta.png"), x_hat_delta[0]*255)
-        cv2.imwrite(os.path.join(gen_img_path_generated, f"img_{i}_gen.png"), x_hat[0]*255)
-        cv2.imwrite(os.path.join(gen_img_path_generated, f"img_{i}.png"), Ytr[0].numpy().transpose(0,2,3,1)[0]*255)
-        
-        if i == 30:
+        #posterio sample
+        if i == 0: 
+            for j in range(25):
+                z_delta, _ = nfm.sample(Ytr[1].to(device)+delta)
+                x_hat_delta = aeder.decoder(z_delta, Ytr[1].to(device)+delta)
+                
+                z, _ = nfm.sample(Ytr[1].to(device))
+                x_hat = aeder.decoder(z, Ytr[1].to(device))
+
+                x_hat = x_hat.detach().cpu().numpy()
+                x_hat_delta = x_hat_delta.detach().cpu().numpy()
+                add_delta_posterio_sample(Ytr, x_hat, x_hat_delta,
+                j, mean_sample,
+                ps_path,
+                gen_ps_path)
+
+        if i == 0:
             break
+        
         
 if __name__ == "__main__":
     delta_value()

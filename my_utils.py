@@ -18,8 +18,48 @@ def data_normalization(x):
     return x
 
 
+def conditional_sampling(nfm, aem, X, y, n_avg, n_test=5, n_samp_show=4, device="cpu",exp_path=None):
+    """Generate posterior samples, MMSE, MAP and UQ"""
+    y_s_single = y[1*n_test:2*n_test].to(device)
+    y_reshaped = y[1*n_test:2*n_test].detach().cpu().numpy()
+    # print(y_reshaped.shape)
+    if np.shape(y_s_single)[1] != np.shape(X)[1]:
+        
+        r = np.shape(X)[1]
+        if np.shape(y)[3] == 2:
+            y_reshaped = np.sqrt(np.sum(np.square(y_reshaped), axis=3, keepdims=True))
+            y_reshaped = data_normalization(y_reshaped)
+        
+        y_reshaped_orig = np.zeros([n_test, np.shape(X)[1], np.shape(X)[2], np.shape(X)[3]])
+        for i in range(n_test):
+            if np.shape(X)[3] == 1:
+                y_reshaped_orig[i,:,:,0] = cv2.resize(y_reshaped[i][:,:,0], (r,r),
+                                                  interpolation = cv2.INTER_NEAREST)
+            else:
+                y_reshaped_orig[i] = cv2.resize(y_reshaped[i], (r,r),
+                                            interpolation = cv2.INTER_NEAREST)
+         
+        y_reshaped = y_reshaped_orig
+    
 
-def conditional_sampling(nf_model , auto_model , x_test , y_test ,
+    y_s = y_s_single.repeat_interleave(n_avg, dim=0)
+    gt = X[1*n_test:2*n_test].detach().cpu().numpy()
+    print(y_s.shape)
+    z_random = nfm.sample(y=y_s, num_samples=y_s.shape[0])
+    z_random_mean = nfm.sample_mu(y=y_s_single, num_samples=y_s_single.shape[0])
+    
+    x_sampled = aem.decoder(z_random[0], y_s).detach().cpu().numpy()
+    x_MAP = aem.decoder(z_random_mean[0], y_s_single).detach().cpu().numpy()
+    # x_sampled_mean = x_sampled.mean(axis=0)
+    # x_sampled_std = x_sampled.std(axis=0)
+    
+    # x_sampled_conditional = np.concatenate([x_sampled[:n_test*n_samp_show], x_sampled_mean[:n_test], x_sampled_std[:n_test], x_MAP[:n_test], gt[:n_test]], axis=0)
+    x_sampled_conditional = np.concatenate([x_sampled[:n_test*n_samp_show], x_MAP[:n_test], gt[:n_test]], axis=0)
+    print(x_sampled_conditional.shape)
+    return x_sampled_conditional, y_reshaped
+
+
+def conditional_sampling_from_ctrumpets(nf_model , auto_model , x_test , y_test ,
                          n_average , n_test = 5 , n_sample_show = 4, device = "cpu", exp_path=None):
     '''Generate posterior samples, MMSE, MAP and UQ'''
     
@@ -55,9 +95,9 @@ def conditional_sampling(nf_model , auto_model , x_test , y_test ,
 
     y_s = y_s_single.repeat_interleave(n_average, dim=0)
     gt = x_test[1*n_test:2 * n_test].numpy()
-    
-    z_random = nf_model.sample(y=y_s, num_samples=n_average*5)
-    z_random_mean = nf_model.sample_mu(y=y_s_single, num_samples=5)
+    print(y_s.shape)
+    z_random = nf_model.sample(y=y_s, num_samples=y_s.shape[0])
+    z_random_mean = nf_model.sample_mu(y=y_s_single, num_samples=y_s_single.shape[0])
     
     x_sampled = auto_model.decoder(z_random[0], y_s).detach().cpu().numpy()
     x_MAP = auto_model.decoder(z_random_mean[0], y_s_single).detach().cpu().numpy()

@@ -233,35 +233,53 @@ def fit_flow(nfm,
             sample_number = 9
             ngrid = int(np.sqrt(sample_number))
             
-            #####Generating sample data########
+            # #####Generating sample data########
             num_samples = torch.tensor(sample_number).to(device)
             y_copy = y[0:sample_number,]
             cond_image_bound = cond_image[0:sample_number]
             y_copy = y_copy.to(device)
             cond_image_bound = cond_image_bound.to(device)
             generated_embed, _ = nfm.sample(y=y_copy, num_samples=num_samples)
+            generated_embed_mu, _ = nfm.sample_mu(y=y_copy, num_samples=num_samples)
             
             generated_samples = aeder.decoder(generated_embed, cond_image_bound).detach().cpu().numpy()
+            generated_samples_mu = aeder.decoder(generated_embed_mu, cond_image_bound).detach().cpu().numpy()
+            
             generated_samples = np.reshape(generated_samples,
                                            [generated_samples.shape[0],
+                                            c,image_size, image_size]).transpose(0,2,3,1)
+            generated_samples_mu = np.reshape(generated_samples_mu,
+                                           [generated_samples_mu.shape[0],
+                                            c,image_size, image_size]).transpose(0,2,3,1)
+            gt = np.reshape(image.detach().cpu().numpy(),
+                                           [image.shape[0],
                                             c,image_size, image_size]).transpose(0,2,3,1)
 
             generated_samples = generated_samples[:sample_number, :, :, ::-1].reshape(
                 ngrid, ngrid,
                 image_size, image_size, c).swapaxes(1, 2).reshape(ngrid*image_size, -1, c)*255.0
+            
+            generated_samples_mu = generated_samples_mu[:sample_number, :, :, ::-1].reshape(
+                ngrid, ngrid,
+                image_size, image_size, c).swapaxes(1, 2).reshape(ngrid*image_size, -1, c)*255.0
+            
+            gt = gt[:sample_number, :, :, ::-1].reshape(
+                ngrid, ngrid,
+                image_size, image_size, c).swapaxes(1, 2).reshape(ngrid*image_size, -1, c)*255.0
 
      
-            cv2.imwrite(os.path.join(image_path_generated, 'epoch %d.png' % (ep,)), generated_samples) 
+            cv2.imwrite(os.path.join(image_path_generated, 'epoch%d.png' % (ep,)), generated_samples) 
+            cv2.imwrite(os.path.join(image_path_generated, 'epoch_mu_%d.png' % (ep,)), generated_samples) 
+            cv2.imwrite(os.path.join(image_path_generated, 'epoch_gt_%d.png' % (ep,)), gt) 
 
             
             
-            # 
-
+             
             with open(os.path.join(exp_path, 'results.txt'), 'a') as file:
                     file.write('ep: %03d/%03d | time: %.4f | ML_loss %.4f' %(ep, epochs_flow, t2-t1, loss_flow_epoch))
                     file.write('\n')
     
-            print('ep: %03d/%03d | time: %.4f | ML_loss %.4f' %(ep, epochs_flow, t2-t1, loss_flow_epoch))
+            print('ep: %03d/%03d | time: %.4f | ML_loss  %.4f' %(ep, epochs_flow, t2-t1, loss_flow_epoch))
 
 
 
@@ -289,7 +307,6 @@ def fit_flow_with_delta(nfm,
         t1 = default_timer()
         loss_flow_epoch = 0
         for _, image in tqdm(enumerate(train_loader)):
-            optimizer_flow.zero_grad()
             #add noise to the image to use is as conditional image
             if y_train_loader:
                 cond_image = image[1].to(device)
@@ -317,8 +334,8 @@ def fit_flow_with_delta(nfm,
             loss_flow = nfm.forward_kld(x, y+delta)
             
             if ~(torch.isnan(loss_flow) | torch.isinf(loss_flow)):
-                loss_flow.backward()
                 optimizer_flow.step()
+                loss_flow.backward()
             
             # Make layers Lipschitz continuous
             nf.utils.update_lipschitz(nfm, 5)
@@ -327,6 +344,7 @@ def fit_flow_with_delta(nfm,
             
             # Log loss
             loss_hist = np.append(loss_hist, loss_flow.to('cpu').data.numpy())
+            optimizer_flow.zero_grad()
         
         scheduler_flow.step()
         t2 = default_timer()

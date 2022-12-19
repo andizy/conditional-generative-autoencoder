@@ -20,7 +20,7 @@ class DatasetLoader(torch.utils.data.Dataset):
         dataset = 'mnist', 
         size=(32,32), 
         c = 1,
-        missing_cone = 'vertical',
+        missing_cone = 'horizontal',
         cond = False,
         ):
         self.transform = transforms.Compose([
